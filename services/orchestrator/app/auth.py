@@ -1,23 +1,38 @@
+from fastapi import HTTPException
 import os
 from typing import Dict, Any
-import requests
-from fastapi import HTTPException
+
+# existing imports
+from .vault import get_secret
 
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL', 'http://keycloak:8081')
 REALM = os.environ.get('KEYCLOAK_REALM', 'master-agent-realm')
 CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'master-agent-client')
-CLIENT_SECRET = os.environ.get('KEYCLOAK_CLIENT_SECRET', 'master-agent-secret')
+CLIENT_SECRET = os.environ.get('KEYCLOAK_CLIENT_SECRET', None)
 
 INTROSPECT_URL = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token/introspect"
 
 
+def _ensure_client_secret():
+    global CLIENT_SECRET
+    if CLIENT_SECRET:
+        return
+    # attempt to read from Vault
+    try:
+        secret = get_secret('keycloak', 'client_secret')
+        if secret:
+            CLIENT_SECRET = secret
+            return
+    except Exception:
+        pass
+
+
 def introspect_token(token: str) -> Dict[str, Any]:
-    """Call Keycloak token introspection endpoint and return the JSON result.
-    Requires KEYCLOAK_CLIENT_ID and KEYCLOAK_CLIENT_SECRET to be set in env.
-    """
+    _ensure_client_secret()
     if not CLIENT_ID or not CLIENT_SECRET:
         raise HTTPException(status_code=500, detail='Keycloak client credentials not configured')
 
+    import requests
     data = {
         'token': token,
         'client_id': CLIENT_ID,
@@ -36,14 +51,12 @@ def introspect_token(token: str) -> Dict[str, Any]:
 
 
 def get_roles_from_introspect(info: Dict[str, Any]):
-    # Keycloak returns realm_access.roles for realm roles
     roles = []
     try:
         realm_access = info.get('realm_access') or {}
         roles = realm_access.get('roles', [])
     except Exception:
         roles = []
-    # also check resource_access for client-specific roles
     try:
         resource_access = info.get('resource_access') or {}
         client_roles = resource_access.get(CLIENT_ID, {}).get('roles', [])
@@ -54,9 +67,6 @@ def get_roles_from_introspect(info: Dict[str, Any]):
 
 
 def verify_token_and_get_user(authorization_header: str):
-    """Validate Authorization: Bearer <token> header via Keycloak introspection and return a user dict.
-    Raises HTTPException on failure.
-    """
     if not authorization_header:
         raise HTTPException(status_code=401, detail='Missing Authorization header')
     parts = authorization_header.split()

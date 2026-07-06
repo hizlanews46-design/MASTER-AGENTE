@@ -1,10 +1,15 @@
 import os
 import time
 import asyncio
+import json
 from app.db import AsyncSessionLocal
 from app.models import Run, SubAgent, Checkpoint, Approval
 from sqlalchemy import update
 from app.metrics import RUNS_FINISHED
+import redis
+
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+redis_sync = redis.from_url(REDIS_URL)
 
 async def _update_run(session, run_id, **kwargs):
     await session.execute(update(Run).where(Run.id == run_id).values(**kwargs))
@@ -23,7 +28,7 @@ async def execute_run_async(run_id: str):
             pass
 
         sub = await session.get(SubAgent, run.subagent_id)
-        # Example behavior: if run_spec requests approval, create approval and wait
+        # Example behavior: if run_spec requests approval, create approval and wait via Redis
         requires_approval = False
         try:
             requires_approval = run.inputs.get('requires_approval', False)
@@ -36,23 +41,26 @@ async def execute_run_async(run_id: str):
                 appv = Approval(run_id=run.id, status='requested')
                 session.add(appv)
                 await session.commit()
-                # poll for approval
-                waited = 0
-                while waited < 3600:
-                    await asyncio.sleep(5)
-                    waited += 5
-                    refreshed = await session.get(Approval, appv.id)
-                    if refreshed.status == 'approved':
-                        print('Approval granted, continuing')
-                        break
-                    if refreshed.status == 'rejected':
-                        print('Approval rejected, aborting')
-                        await _update_run(session, run_id, status='failed')
-                        return
-                else:
+                # Wait for approval via Redis BRPOP on channel approval:{approval_id}
+                channel = f"approval:{appv.id}"
+                print('Waiting for approval on redis channel', channel)
+                # use blocking pop in a thread to avoid blocking the event loop
+                res = await asyncio.to_thread(redis_sync.brpop, channel, 3600)
+                if not res:
                     print('Approval timed out')
                     await _update_run(session, run_id, status='failed')
                     return
+                # res is a tuple (channel, data)
+                try:
+                    data = json.loads(res[1].decode('utf-8')) if isinstance(res[1], (bytes, bytearray)) else json.loads(res[1])
+                except Exception:
+                    data = {'action': 'reject'}
+                action = data.get('action')
+                if action != 'approve':
+                    print('Approval rejected, aborting')
+                    await _update_run(session, run_id, status='failed')
+                    return
+                print('Approval granted, continuing')
 
             # Simulate work or run container if docker socket available
             docker_sock = os.environ.get('DOCKER_SOCK', '/var/run/docker.sock')
