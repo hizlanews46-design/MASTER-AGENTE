@@ -4,6 +4,7 @@ from sqlalchemy import select, update
 from app.models import Agent, SubAgent, Run, Approval
 from app.db import AsyncSessionLocal
 from uuid import uuid4
+from app.metrics import RUNS_CREATED
 
 async def create_agent_async(payload: Dict[str, Any], owner_id: Optional[str] = None):
     async with AsyncSessionLocal() as session:
@@ -23,7 +24,7 @@ async def get_agent_async(agent_id: str):
         res = await session.execute(select(Agent).where(Agent.id == agent_id))
         return res.scalar_one_or_none()
 
-async def create_subagent_and_run(agent_id: str, run_input: Dict[str, Any]):
+async def create_subagent_and_run(agent_id: str, run_input: Dict[str, Any], owner_id: Optional[str] = None):
     async with AsyncSessionLocal() as session:
         sub = SubAgent(id=str(uuid4()), agent_id=agent_id, name=f"{agent_id}-run", status='queued', run_spec=run_input)
         session.add(sub)
@@ -32,6 +33,11 @@ async def create_subagent_and_run(agent_id: str, run_input: Dict[str, Any]):
         session.add(run)
         await session.commit()
         await session.refresh(run)
+        # metrics
+        try:
+            RUNS_CREATED.inc()
+        except Exception:
+            pass
         return sub, run
 
 async def update_run_status(run_id: str, status: str, outputs: Optional[Dict[str, Any]] = None):

@@ -11,3 +11,8 @@ prometheus-client
 boto3
 qdrant-client
 passlib[bcrypt]
+requests
+python-jose[cryptography]
+rq
+redis
+docker

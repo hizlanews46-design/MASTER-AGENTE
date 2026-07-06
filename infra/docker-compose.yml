@@ -41,6 +41,9 @@ services:
       - KEYCLOAK_URL=http://keycloak:8081
       - VAULT_ADDR=http://vault:8200
       - DOCKER_SOCK=/var/run/docker.sock
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
     depends_on:
       - postgres
       - redis
