@@ -1,47 +1,17 @@
 @@
-   worker:
-     build: ../services/orchestrator
-     container_name: orchestrator_worker
-     restart: unless-stopped
-     command: ["python", "rq_worker.py"]
+   grafana:
+     image: grafana/grafana:latest
      environment:
-       - REDIS_URL=redis://redis:6379/0
-       - DATABASE_URL=postgresql+asyncpg://ma_user:ma_pass@postgres:5432/master_agent
-       - DOCKER_SOCK=/var/run/docker.sock
-     volumes:
-       - /var/run/docker.sock:/var/run/docker.sock
+       - GF_SECURITY_ADMIN_PASSWORD=admin
+     ports:
+       - "3000:3000"
      depends_on:
-       - redis
-       - postgres
-       - orchestrator
+       - prometheus
      networks:
        - map
-+
-+  rq_exporter:
-+    image: python:3.11-slim
-+    container_name: rq_exporter
-+    command: ["python", "/app/rq_exporter.py"]
+-    volumes:
+-      - grafana_data:/var/lib/grafana
 +    volumes:
-+      - ../services/orchestrator/rq_exporter.py:/app/rq_exporter.py:ro
-+    environment:
-+      - REDIS_URL=redis://redis:6379/0
-+      - RQ_EXPORTER_PORT=9121
-+    ports:
-+      - "9121:9121"
-+    depends_on:
-+      - redis
-+    networks:
-+      - map
-+
-+  rq_dashboard:
-+    build: ../services/rq_dashboard
-+    container_name: rq_dashboard
-+    restart: unless-stopped
-+    ports:
-+      - "9181:9181"
-+    environment:
-+      - RQ_REDIS_URL=redis://redis:6379
-+    depends_on:
-+      - redis
-+    networks:
-+      - map
++      - grafana_data:/var/lib/grafana
++      - ./grafana/provisioning:/etc/grafana/provisioning:ro
++      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

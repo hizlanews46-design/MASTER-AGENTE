@@ -14,3 +14,12 @@ scrape_configs:
   - job_name: 'qdrant'
     static_configs:
       - targets: ['qdrant:6333']
+
+  - job_name: 'rq_exporter'
+    static_configs:
+      - targets: ['rq_exporter:9121']
+
+  - job_name: 'grafana'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['grafana:3000']

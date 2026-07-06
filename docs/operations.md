@@ -1,9 +1,5 @@
-# RQ Dashboard access
-- UI: http://<VM_IP>:9181 (rq-dashboard)
-
-# RQ exporter metrics
-- Prometheus endpoint: http://<VM_IP>:9121/metrics
-+ RQ Dashboard UI: http://<VM_IP>:9181 (rq-dashboard)
-+
-+ RQ exporter metrics: http://<VM_IP>:9121/metrics
-+  - Exposes prometheus metric `rq_queue_jobs{queue="default"}`
+# Prometheus
+- job_name: 'rq_exporter'
+-    static_configs:
+-      - targets: ['rq_exporter:9121']
++ Add the RQ exporter scrape to infra/prometheus/prometheus.yml and ensure Grafana is provisioned with a Prometheus datasource and an initial dashboard at infra/grafana/dashboards/map_dashboard.json.
