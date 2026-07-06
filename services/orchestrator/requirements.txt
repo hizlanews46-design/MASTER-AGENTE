@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+alembic
+pydantic[email]
+httpx
+aioredis
+python-dotenv
+prometheus-client
+boto3
+qdrant-client
+# langgraph and crewai SDKs are placeholders; install appropriate SDKs when available

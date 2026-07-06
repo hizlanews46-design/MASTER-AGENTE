@@ -1,0 +1,157 @@
+version: "3.9"
+services:
+  orchestrator:
+    build: ../services/orchestrator
+    container_name: orchestrator
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ma_user:ma_pass@postgres:5432/master_agent
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - QDRANT_URL=http://qdrant:6333
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+      - minio
+    networks:
+      - map
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - orchestrator_data:/app/data
+
+  subagent:
+    build: ../services/subagent-template
+    container_name: subagent_template
+    restart: "no"
+    networks:
+      - map
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: master_agent
+      POSTGRES_USER: ma_user
+      POSTGRES_PASSWORD: ma_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - map
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ma_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    networks:
+      - map
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    command: ["./qdrant", "--memory-lock", "true"]
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - map
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - map
+
+  nginx:
+    image: nginx:stable
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - orchestrator
+    networks:
+      - map
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - map
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - map
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=n8n_admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+    ports:
+      - "5678:5678"
+    networks:
+      - map
+
+  wordpress:
+    image: wordpress:6.0-php8.1-apache
+    environment:
+      WORDPRESS_DB_HOST: postgres
+      WORDPRESS_DB_USER: ma_user
+      WORDPRESS_DB_PASSWORD: ma_pass
+      WORDPRESS_DB_NAME: master_agent
+    ports:
+      - "8080:80"
+    networks:
+      - map
+    depends_on:
+      - postgres
+
+networks:
+  map:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  qdrant_storage:
+  minio_data:
+  orchestrator_data:
+  grafana_data:
