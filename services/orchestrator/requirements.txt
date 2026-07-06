@@ -10,4 +10,4 @@ python-dotenv
 prometheus-client
 boto3
 qdrant-client
-# langgraph and crewai SDKs are placeholders; install appropriate SDKs when available
+passlib[bcrypt]
