@@ -28,7 +28,7 @@ async def execute_run_async(run_id: str):
             pass
 
         sub = await session.get(SubAgent, run.subagent_id)
-        # Example behavior: if run_spec requests approval, create approval and wait via Redis
+        # approval via Redis pub/sub
         requires_approval = False
         try:
             requires_approval = run.inputs.get('requires_approval', False)
@@ -41,24 +41,39 @@ async def execute_run_async(run_id: str):
                 appv = Approval(run_id=run.id, status='requested')
                 session.add(appv)
                 await session.commit()
-                # Wait for approval via Redis BRPOP on channel approval:{approval_id}
+
                 channel = f"approval:{appv.id}"
-                print('Waiting for approval on redis channel', channel)
-                # use blocking pop in a thread to avoid blocking the event loop
-                res = await asyncio.to_thread(redis_sync.brpop, channel, 3600)
+                print('Subscribing to redis channel', channel)
+
+                def wait_for_message(ch, timeout=3600):
+                    p = redis_sync.pubsub()
+                    p.subscribe(ch)
+                    start = time.time()
+                    for message in p.listen():
+                        if message and message.get('type') == 'message':
+                            data = message.get('data')
+                            try:
+                                if isinstance(data, (bytes, bytearray)):
+                                    data = data.decode('utf-8')
+                                return data
+                            except Exception:
+                                return None
+                        if time.time() - start > timeout:
+                            return None
+
+                res = await asyncio.to_thread(wait_for_message, channel, 3600)
                 if not res:
                     print('Approval timed out')
-                    await _update_run(session, run_id, status='failed')
+                    await _update_run(session, run.id, status='failed')
                     return
-                # res is a tuple (channel, data)
                 try:
-                    data = json.loads(res[1].decode('utf-8')) if isinstance(res[1], (bytes, bytearray)) else json.loads(res[1])
+                    payload = json.loads(res)
                 except Exception:
-                    data = {'action': 'reject'}
-                action = data.get('action')
-                if action != 'approve':
+                    payload = {'action': 'reject'}
+                action = payload.get('action')
+                if action != 'approved' and action != 'approve':
                     print('Approval rejected, aborting')
-                    await _update_run(session, run_id, status='failed')
+                    await _update_run(session, run.id, status='failed')
                     return
                 print('Approval granted, continuing')
 
