@@ -1,0 +1,26 @@
+{
+  "realm": "master-agent-realm",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "master-agent-client",
+      "publicClient": false,
+      "secret": "master-agent-secret",
+      "redirectUris": ["http://localhost:8000/*"],
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "adminpassword"
+        }
+      ],
+      "emailVerified": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+id: code-writer
+name: Code Writer Agent
+version: '1.0'
+description: Generates production-grade code from specifications.
+capabilities:
+  - generate_code
+  - run_tests
+  - create_dockerfile
+  - create_compose
+tools:
+  - name: git
+  - name: minio
+  - name: postgres
+runtime:
+  image: subagent-code-writer:latest
+resources:
+  cpu: 1
+  memory: 2G
+approval_policy:
+  default: auto

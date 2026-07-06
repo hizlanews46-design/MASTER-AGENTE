@@ -1,0 +1,28 @@
+id: master-agent
+name: Master Agent
+version: '1.0'
+description: >
+  The Master Agent orchestrates design, creation, and lifecycle management of sub-agents.
+capabilities:
+  - design_agent
+  - spawn_subagent
+  - generate_prompt
+  - write_code
+  - deploy_service
+  - monitor_service
+  - checkpoint_recovery
+  - request_human_approval
+tools:
+  - name: langchain
+  - name: qdrant
+  - name: postgres
+  - name: minio
+approval_policy:
+  default: manual_for_deploy
+runtime:
+  image: orchestrator:latest
+  cpu: 1
+  memory: 2G
+prompts:
+  design_agent_template: |
+    You are an AI architect: given spec {spec}, produce an agent manifest with fields: name, version, capabilities, entrypoint, resources, env, api_spec.

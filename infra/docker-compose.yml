@@ -1,0 +1,17 @@
+@@
+   grafana:
+     image: grafana/grafana:latest
+     environment:
+       - GF_SECURITY_ADMIN_PASSWORD=admin
+     ports:
+       - "3000:3000"
+     depends_on:
+       - prometheus
+     networks:
+       - map
+-    volumes:
+-      - grafana_data:/var/lib/grafana
++    volumes:
++      - grafana_data:/var/lib/grafana
++      - ./grafana/provisioning:/etc/grafana/provisioning:ro
++      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

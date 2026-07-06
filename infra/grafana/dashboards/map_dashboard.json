@@ -1,0 +1,54 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {},
+      "targets": [
+        {
+          "expr": "rq_queue_jobs{queue=\"default\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "RQ Queue Length",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "id": 2,
+      "options": {},
+      "targets": [
+        {"expr": "map_runs_created_total", "legendFormat": "created", "refId": "A"},
+        {"expr": "map_runs_finished_total", "legendFormat": "finished", "refId": "B"}
+      ],
+      "title": "Runs Created vs Finished",
+      "type": "graph"
+    }
+  ],
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": [],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Master Agent Platform Overview",
+  "uid": "map-overview",
+  "version": 1
+}
